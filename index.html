@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>MediaVault Pro | Media Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
+
+        :root {
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --surface: #0f172a;
+            --card: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(30, 58, 138, 0.15) 0px, transparent 50%);
+            color: #f8fafc;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .heading-font { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        .glass {
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+        }
+
+        .card-entry {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .card-entry:hover {
+            transform: translateY(-6px) scale(1.01);
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5), 0 0 20px -5px var(--primary-glow);
+        }
+
+        /* Delete exit animation */
+        .item-exit {
+            animation: item-exit-anim 0.5s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+            pointer-events: none;
+        }
+
+        @keyframes item-exit-anim {
+            0%   { transform: scale(1);       opacity: 1;   filter: blur(0); }
+            30%  { transform: scale(1.05);    opacity: 0.8; }
+            100% { transform: scale(0.8) translateY(30px); opacity: 0; filter: blur(12px); }
+        }
+
+        /* Toast entry animation */
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(12px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .toast-animate { animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* Shimmer skeleton */
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% 0; }
+            100% { background-position:  200% 0; }
+        }
+
+        /* Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        /* Hide scrollbar for filter tabs */
+        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        input:focus, select:focus, textarea:focus {
+            box-shadow: 0 0 0 2px var(--primary-glow);
+            border-color: var(--primary) !important;
+        }
+
+        /* Loading overlay starts hidden */
+        #loading-overlay { display: none; }
+        #loading-overlay.active { display: flex; }
+    </style>
+</head>
+<body class="custom-scrollbar">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 z-[100] glass flex-col items-center justify-center">
+        <div class="relative">
+            <div class="w-20 h-20 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-10 h-10 bg-blue-500/10 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+        <h3 id="loader-status" class="mt-8 text-xl font-bold heading-font tracking-tight">Syncing Vault...</h3>
+        <p class="text-slate-400 text-sm mt-2">Optimizing data chunks for performance</p>
+    </div>
+
+    <!-- App Shell -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Header -->
+        <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <svg class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                            <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/>
+                            <line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-3xl font-extrabold heading-font tracking-tight">MediaVault<span class="text-blue-500">Pro</span></h1>
+                </div>
+                <p class="text-slate-400 font-medium">Easy tracking for your digital collection.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="dataManager.export()" class="glass hover:bg-white/5 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all active:scale-95">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    Export
+                </button>
+                <label class="glass hover:bg-white/5 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all active:scale-95 cursor-pointer">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                    Import
+                    <input type="file" id="import-gate" class="hidden" accept=".json" onchange="dataManager.import(event)">
+                </label>
+                <button onclick="ui.toggleModal(true)" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-xl shadow-blue-600/20 active:scale-95">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Media
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Dashboard -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <div class="glass p-6 rounded-3xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-3xl group-hover:bg-blue-500/10 transition-colors"></div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Vault Capacity</p>
+                <div class="flex items-end gap-2">
+                    <h2 id="stat-total" class="text-3xl font-bold heading-font">0</h2>
+                    <span class="text-slate-500 text-sm mb-1">titles</span>
+                </div>
+            </div>
+            <div class="glass p-6 rounded-3xl border-l-4 border-l-blue-500">
+                <p class="text-xs font-bold text-blue-400/80 uppercase tracking-widest mb-1">Active Now</p>
+                <h2 id="stat-ongoing" class="text-3xl font-bold heading-font text-blue-400">0</h2>
+            </div>
+            <div class="glass p-6 rounded-3xl border-l-4 border-l-emerald-500">
+                <p class="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-1">Finished</p>
+                <h2 id="stat-completed" class="text-3xl font-bold heading-font text-emerald-400">0</h2>
+            </div>
+            <div class="glass p-6 rounded-3xl">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Watchlist</p>
+                <h2 id="stat-plan" class="text-3xl font-bold heading-font">0</h2>
+            </div>
+        </section>
+
+        <!-- Search & Sort Bar -->
+        <div class="flex flex-col md:flex-row gap-4 mb-8">
+            <div class="relative flex-grow group">
+                <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors pointer-events-none">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <input type="text" id="global-search" oninput="ui.handleSearch()" placeholder="Find title or notes..." autocomplete="off" spellcheck="false"
+                    class="w-full bg-slate-900/50 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-white focus:outline-none transition-all placeholder:text-slate-600">
+            </div>
+            <select id="global-sort" onchange="ui.render()" class="bg-slate-900/50 border border-white/5 rounded-2xl px-6 py-4 text-white font-semibold focus:outline-none cursor-pointer hover:bg-slate-800 transition-all">
+                <option value="newest">Recent First</option>
+                <option value="rating">Highest Rated</option>
+                <option value="alpha">Alphabetical</option>
+            </select>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-4 mb-6">
+            <button onclick="ui.setFilter('all')" data-f="all" class="filter-tab active bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-blue-600/20 whitespace-nowrap">All Media</button>
+            <button onclick="ui.setFilter('ongoing')" data-f="ongoing" class="filter-tab bg-white/5 text-slate-400 hover:text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap">In Progress</button>
+            <button onclick="ui.setFilter('watched')" data-f="watched" class="filter-tab bg-white/5 text-slate-400 hover:text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap">Completed</button>
+            <button onclick="ui.setFilter('want')" data-f="want" class="filter-tab bg-white/5 text-slate-400 hover:text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap">Watchlist</button>
+        </div>
+
+        <!-- Main Grid -->
+        <div id="media-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+    </div>
+
+    <!-- Modal Overlay (closes on backdrop click) -->
+    <div id="modal-overlay" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 hidden" onclick="ui.handleOverlayClick(event)">
+        <div class="bg-slate-900 border border-white/10 w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-2xl scale-95 opacity-0 transition-all duration-300" id="modal-content">
+            <div class="p-8 lg:p-10">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 id="modal-header-text" class="text-3xl font-black heading-font tracking-tight">Add Entry</h2>
+                    <button onclick="ui.toggleModal(false)" class="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-red-500/20 hover:text-red-400 transition-all" aria-label="Close modal">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <form id="media-form" onsubmit="app.save(event)" class="space-y-6" novalidate>
+                    <input type="hidden" id="f-id">
+
+                    <div class="space-y-2">
+                        <label for="f-title" class="text-xs font-black uppercase tracking-widest text-slate-500">Title *</label>
+                        <input type="text" id="f-title" required maxlength="200" autocomplete="off"
+                            class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none font-medium"
+                            placeholder="Ex: Interstellar, Elden Ring...">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label for="f-type" class="text-xs font-black uppercase tracking-widest text-slate-500">Media Type</label>
+                            <select id="f-type" class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none font-semibold">
+                                <option value="movie">🎬 Movie</option>
+                                <option value="series">📺 Series</option>
+                                <option value="game">🎮 Game</option>
+                                <option value="anime">🍱 Anime</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="f-status" class="text-xs font-black uppercase tracking-widest text-slate-500">Status</label>
+                            <select id="f-status" onchange="ui.syncFormStatus()" class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none font-semibold">
+                                <option value="want">Plan to Watch</option>
+                                <option value="ongoing">In Progress</option>
+                                <option value="watched">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label for="f-rating" class="text-xs font-black uppercase tracking-widest text-slate-500">Rating</label>
+                            <select id="f-rating" class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none font-semibold">
+                                <option value="0">Unrated</option>
+                                <option value="5">⭐⭐⭐⭐⭐</option>
+                                <option value="4">⭐⭐⭐⭐</option>
+                                <option value="3">⭐⭐⭐</option>
+                                <option value="2">⭐⭐</option>
+                                <option value="1">⭐</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2" id="progress-field-wrap">
+                            <label for="f-progress" class="text-xs font-black uppercase tracking-widest text-slate-500">Progress (%)</label>
+                            <input type="number" id="f-progress" min="0" max="100" placeholder="0"
+                                class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="f-notes" class="text-xs font-black uppercase tracking-widest text-slate-500">Vault Notes</label>
+                        <textarea id="f-notes" rows="3" maxlength="1000"
+                            class="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none resize-none font-medium"
+                            placeholder="Quick review or current status..."></textarea>
+                    </div>
+
+                    <button type="submit" id="form-submit-btn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-5 rounded-2xl font-black heading-font text-lg shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]">
+                        Save Entry
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notify-container" class="fixed bottom-8 right-8 z-[70] flex flex-col gap-3 pointer-events-none"></div>
+
+    <script>
+        'use strict';
+
+        // ─── Global State ──────────────────────────────────────────────────────────
+        const appState = {
+            items: [],
+            filter: 'all',
+            search: '',
+            isDeleting: false
+        };
+
+        // ─── Utilities ─────────────────────────────────────────────────────────────
+        const utils = {
+            /** XSS-safe text escaping for innerHTML interpolation */
+            esc(str) {
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            },
+
+            /** Collision-resistant unique ID */
+            uid() {
+                return `mv-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+            },
+
+            /** Clamp a number between min and max */
+            clamp(val, min, max) {
+                return Math.min(Math.max(val, min), max);
+            }
+        };
+
+        // ─── Data Manager ──────────────────────────────────────────────────────────
+        const dataManager = {
+            STORAGE_KEY: 'media_pro_vault_data',
+
+            saveToDisk() {
+                try {
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(appState.items));
+                } catch (e) {
+                    ui.notify('Storage full. Export and clear space.', 'error');
+                }
+            },
+
+            loadFromDisk() {
+                try {
+                    const raw = localStorage.getItem(this.STORAGE_KEY);
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    appState.items = Array.isArray(data) ? data.map(this._sanitizeItem) : [];
+                } catch (e) {
+                    ui.notify('Data corruption detected. Initializing fresh vault.', 'warning');
+                    appState.items = [];
+                }
+            },
+
+            /** Enforce schema on a single item */
+            _sanitizeItem(i) {
+                return {
+                    id:        i.id        || utils.uid(),
+                    title:     String(i.title || '').trim().substring(0, 200),
+                    type:      ['movie', 'series', 'game', 'anime'].includes(i.type) ? i.type : 'movie',
+                    status:    ['want', 'ongoing', 'watched'].includes(i.status) ? i.status : 'want',
+                    rating:    utils.clamp(parseInt(i.rating) || 0, 0, 5),
+                    progress:  utils.clamp(parseInt(i.progress) || 0, 0, 100),
+                    notes:     String(i.notes || '').trim().substring(0, 1000),
+                    updatedAt: Number(i.updatedAt) || Date.now()
+                };
+            },
+
+            async export() {
+                if (appState.items.length === 0) {
+                    ui.notify('No data to export', 'warning');
+                    return;
+                }
+
+                ui.loader(true, 'Preparing Backup...');
+                await new Promise(r => setTimeout(r, 400));
+
+                try {
+                    const json = JSON.stringify(appState.items, null, 2);
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url  = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href     = url;
+                    link.download = `MediaVault_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    ui.notify('Backup exported successfully', 'success');
+                } catch (err) {
+                    ui.notify('Export failed: ' + err.message, 'error');
+                } finally {
+                    ui.loader(false);
+                }
+            },
+
+            import(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Reset input immediately so the same file can be re-imported
+                const inputEl = event.target;
+
+                ui.loader(true, 'Verifying Integrity...');
+                const reader = new FileReader();
+
+                reader.onerror = () => {
+                    ui.notify('Failed to read file.', 'error');
+                    ui.loader(false);
+                    inputEl.value = '';
+                };
+
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!Array.isArray(data)) throw new Error('Format Mismatch: expected JSON array');
+
+                        const cleaned = data
+                            .filter(i => i && typeof i.title === 'string' && i.title.trim())
+                            .map(dataManager._sanitizeItem);
+
+                        if (cleaned.length === 0) throw new Error('No valid entries found in file');
+
+                        if (confirm(`Import ${cleaned.length} items? This replaces your current vault.`)) {
+                            appState.items = cleaned;
+                            dataManager.saveToDisk();
+                            ui.render();
+                            ui.notify(`Successfully restored ${cleaned.length} items`, 'success');
+                        }
+                    } catch (err) {
+                        ui.notify('Invalid file: ' + err.message, 'error');
+                    } finally {
+                        ui.loader(false);
+                        inputEl.value = '';
+                    }
+                };
+
+                reader.readAsText(file);
+            }
+        };
+
+        // ─── UI Engine ─────────────────────────────────────────────────────────────
+        const ui = {
+            loader(show, text = 'Processing...') {
+                const el  = document.getElementById('loading-overlay');
+                const txt = document.getElementById('loader-status');
+                if (show) {
+                    txt.textContent = text;
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            },
+
+            notify(msg, type = 'success') {
+                const container = document.getElementById('notify-container');
+                const colors = {
+                    success: 'border-emerald-500 text-emerald-400',
+                    error:   'border-red-500 text-red-400',
+                    warning: 'border-amber-500 text-amber-400'
+                };
+
+                const toast = document.createElement('div');
+                toast.className = `glass border-l-4 ${colors[type] || colors.success} p-4 rounded-2xl min-w-[280px] shadow-2xl flex items-center gap-3 toast-animate pointer-events-auto`;
+                // Safe: msg is always a developer-controlled string, not user content
+                const safeMsg = utils.esc(msg);
+                toast.innerHTML = `
+                    <div class="flex-grow font-bold text-sm text-white">${safeMsg}</div>
+                    <button class="opacity-40 hover:opacity-100 text-xl leading-none" aria-label="Dismiss">&times;</button>
+                `;
+                toast.querySelector('button').addEventListener('click', () => toast.remove());
+                container.appendChild(toast);
+
+                const timer = setTimeout(() => toast.remove(), 4000);
+                // Cancel auto-remove if user is hovering
+                toast.addEventListener('mouseenter', () => clearTimeout(timer));
+                toast.addEventListener('mouseleave', () => setTimeout(() => toast.remove(), 1500));
+            },
+
+            handleOverlayClick(e) {
+                if (e.target === document.getElementById('modal-overlay')) {
+                    this.toggleModal(false);
+                }
+            },
+
+            toggleModal(show, id = null) {
+                const overlay   = document.getElementById('modal-overlay');
+                const content   = document.getElementById('modal-content');
+                const form      = document.getElementById('media-form');
+                const headerTxt = document.getElementById('modal-header-text');
+                const submitBtn = document.getElementById('form-submit-btn');
+
+                if (show) {
+                    overlay.classList.remove('hidden');
+                    // Force reflow before animating
+                    void content.offsetWidth;
+                    requestAnimationFrame(() => {
+                        content.classList.remove('scale-95', 'opacity-0');
+                    });
+
+                    if (id) {
+                        const item = appState.items.find(i => i.id === id);
+                        if (item) {
+                            headerTxt.textContent = 'Edit Entry';
+                            submitBtn.textContent = 'Save Changes';
+                            document.getElementById('f-id').value       = item.id;
+                            document.getElementById('f-title').value    = item.title;
+                            document.getElementById('f-status').value   = item.status;
+                            document.getElementById('f-type').value     = item.type;
+                            document.getElementById('f-rating').value   = item.rating;
+                            document.getElementById('f-progress').value = item.progress;
+                            document.getElementById('f-notes').value    = item.notes;
+                        }
+                    } else {
+                        headerTxt.textContent = 'Add Entry';
+                        submitBtn.textContent = 'Add to Vault';
+                        form.reset();
+                        document.getElementById('f-id').value = '';
+                    }
+
+                    this.syncFormStatus();
+                    // Focus title for accessibility
+                    setTimeout(() => document.getElementById('f-title').focus(), 320);
+                } else {
+                    content.classList.add('scale-95', 'opacity-0');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                }
+            },
+
+            syncFormStatus() {
+                const status      = document.getElementById('f-status').value;
+                const progressEl  = document.getElementById('f-progress');
+
+                if (status === 'watched') {
+                    progressEl.value    = 100;
+                    progressEl.disabled = true;
+                } else if (status === 'want') {
+                    progressEl.value    = 0;
+                    progressEl.disabled = true;
+                } else {
+                    progressEl.disabled = false;
+                    if (!progressEl.value) progressEl.value = 0;
+                }
+            },
+
+            setFilter(f) {
+                appState.filter = f;
+                document.querySelectorAll('.filter-tab').forEach(btn => {
+                    const isActive = btn.dataset.f === f;
+                    btn.className = `filter-tab px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                        isActive
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                            : 'bg-white/5 text-slate-400 hover:text-white'
+                    }`;
+                });
+                this.render();
+            },
+
+            handleSearch() {
+                appState.search = document.getElementById('global-search').value.toLowerCase().trim();
+                this.render();
+            },
+
+            render() {
+                const grid = document.getElementById('media-grid');
+                const sort = document.getElementById('global-sort').value;
+
+                let data = appState.items.filter(item => {
+                    const matchesFilter = appState.filter === 'all' || item.status === appState.filter;
+                    const q             = appState.search;
+                    const matchesSearch = !q ||
+                        item.title.toLowerCase().includes(q) ||
+                        item.notes.toLowerCase().includes(q);
+                    return matchesFilter && matchesSearch;
+                });
+
+                // Stable sort to avoid jumps on re-render
+                data = [...data].sort((a, b) => {
+                    if (sort === 'rating') return b.rating - a.rating || b.updatedAt - a.updatedAt;
+                    if (sort === 'alpha')  return a.title.localeCompare(b.title);
+                    return b.updatedAt - a.updatedAt;
+                });
+
+                if (data.length === 0) {
+                    const isEmpty = appState.items.length === 0;
+                    grid.innerHTML = `
+                        <div class="col-span-full flex flex-col items-center py-24 text-slate-500">
+                            <div class="p-6 rounded-full bg-slate-900 border border-white/5 mb-4">
+                                <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+                                    <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/>
+                                    <line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+                                </svg>
+                            </div>
+                            <p class="font-bold text-lg">${isEmpty ? 'Your vault is empty.' : 'No entries match your criteria.'}</p>
+                            <p class="text-sm mt-1">${isEmpty ? 'Click "Add Media" to get started.' : 'Try adjusting your search or filters.'}</p>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = data.map(item => this.createCard(item)).join('');
+                }
+
+                this.updateStats();
+            },
+
+            createCard(item) {
+                const typeLabels = {
+                    movie:  '🎬 Movie',
+                    series: '📺 Series',
+                    game:   '🎮 Game',
+                    anime:  '🍱 Anime'
+                };
+                const statusStyles = {
+                    want:    'bg-slate-800 text-slate-400',
+                    ongoing: 'bg-blue-500/10 text-blue-400',
+                    watched: 'bg-emerald-500/10 text-emerald-400'
+                };
+                const statusLabel = {
+                    want:    'Watchlist',
+                    ongoing: 'Active',
+                    watched: 'Archived'
+                };
+
+                const safeTitle = utils.esc(item.title);
+                const safeType  = utils.esc(typeLabels[item.type] || 'Media');
+                const safeDate  = utils.esc(new Date(item.updatedAt).toLocaleDateString());
+                const safeId    = utils.esc(item.id);
+
+                const progressBar = item.status === 'ongoing' ? `
+                    <div class="mb-5">
+                        <div class="flex justify-between text-[10px] font-black uppercase text-slate-500 mb-2">
+                            <span>Sync Progress</span>
+                            <span>${item.progress}%</span>
+                        </div>
+                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow="${item.progress}" aria-valuemin="0" aria-valuemax="100">
+                            <div class="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-500" style="width:${item.progress}%"></div>
+                        </div>
+                    </div>
+                ` : '';
+
+                const stars = Array.from({ length: 5 }, (_, idx) => `
+                    <svg width="14" height="14" fill="${idx < item.rating ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                `).join('');
+
+                return `
+                    <article id="item-${safeId}" class="glass p-6 rounded-[2rem] card-entry relative overflow-hidden group" aria-label="${safeTitle}">
+                        <div class="flex items-start justify-between mb-4 relative z-10">
+                            <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${statusStyles[item.status] || statusStyles.want}">
+                                ${statusLabel[item.status] || 'Unknown'}
+                            </span>
+                            <div class="flex gap-1">
+                                <button onclick="ui.toggleModal(true, '${safeId}')"
+                                    class="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 transition-all"
+                                    aria-label="Edit ${safeTitle}">
+                                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                <button onclick="app.remove('${safeId}')"
+                                    class="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-red-500/20 hover:text-red-400 transition-all"
+                                    aria-label="Delete ${safeTitle}">
+                                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <h3 class="text-xl font-bold heading-font mb-1 truncate text-white" title="${safeTitle}">${safeTitle}</h3>
+                        <p class="text-xs font-semibold text-slate-500 mb-4">${safeType}</p>
+
+                        ${progressBar}
+
+                        <div class="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                            <div class="text-amber-400 flex gap-0.5" aria-label="${item.rating} out of 5 stars">
+                                ${stars}
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-600">${safeDate}</span>
+                        </div>
+                    </article>
+                `;
+            },
+
+            updateStats() {
+                const items = appState.items;
+                document.getElementById('stat-total').textContent     = items.length;
+                document.getElementById('stat-ongoing').textContent   = items.filter(i => i.status === 'ongoing').length;
+                document.getElementById('stat-completed').textContent = items.filter(i => i.status === 'watched').length;
+                document.getElementById('stat-plan').textContent      = items.filter(i => i.status === 'want').length;
+            }
+        };
+
+        // ─── Application Logic ─────────────────────────────────────────────────────
+        const app = {
+            init() {
+                dataManager.loadFromDisk();
+                ui.render();
+
+                // Keyboard: Escape closes modal
+                document.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') {
+                        const overlay = document.getElementById('modal-overlay');
+                        if (!overlay.classList.contains('hidden')) ui.toggleModal(false);
+                    }
+                });
+            },
+
+            save(e) {
+                e.preventDefault();
+
+                const titleEl = document.getElementById('f-title');
+                const title   = titleEl.value.trim();
+
+                if (!title) {
+                    ui.notify('Title is required.', 'error');
+                    titleEl.focus();
+                    return;
+                }
+
+                const id       = document.getElementById('f-id').value;
+                const status   = document.getElementById('f-status').value;
+                const rawProg  = parseInt(document.getElementById('f-progress').value) || 0;
+                const progress = status === 'watched' ? 100 : status === 'want' ? 0 : utils.clamp(rawProg, 0, 100);
+
+                const newItem = {
+                    id:        id || utils.uid(),
+                    title,
+                    status,
+                    type:      document.getElementById('f-type').value,
+                    rating:    utils.clamp(parseInt(document.getElementById('f-rating').value) || 0, 0, 5),
+                    progress,
+                    notes:     document.getElementById('f-notes').value.trim().substring(0, 1000),
+                    updatedAt: Date.now()
+                };
+
+                if (id) {
+                    const idx = appState.items.findIndex(i => i.id === id);
+                    if (idx !== -1) {
+                        appState.items[idx] = newItem;
+                    } else {
+                        appState.items.unshift(newItem);
+                    }
+                    ui.notify('Vault entry updated', 'success');
+                } else {
+                    appState.items.unshift(newItem);
+                    ui.notify('Entry added to vault', 'success');
+                }
+
+                dataManager.saveToDisk();
+                ui.toggleModal(false);
+                ui.render();
+            },
+
+            async remove(id) {
+                if (appState.isDeleting) return;
+
+                const item = appState.items.find(i => i.id === id);
+                if (!item) return;
+
+                if (!confirm(`Purge "${item.title}" from vault?`)) return;
+
+                appState.isDeleting = true;
+                const card = document.getElementById(`item-${id}`);
+
+                if (card) {
+                    card.classList.add('item-exit');
+                    await new Promise(r => setTimeout(r, 500));
+                }
+
+                appState.items = appState.items.filter(i => i.id !== id);
+                dataManager.saveToDisk();
+                ui.render();
+                ui.notify('Entry purged from vault', 'warning');
+                appState.isDeleting = false;
+            }
+        };
+
+        // ─── Boot ──────────────────────────────────────────────────────────────────
+        app.init();
+    </script>
+</body>
+</html>
